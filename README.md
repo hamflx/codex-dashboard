@@ -11,6 +11,7 @@ Realtime Vercel dashboard scaffold for monitoring Codex TTFT by region.
 - Local JSON storage for development.
 - Mock probe mode so the deployment and UI can be tested before proxy and OpenAI credentials are ready.
 - Redis writes are stored by probe run to stay comfortably inside low Upstash command quotas.
+- Official OpenAI Codex OAuth probing through `https://chatgpt.com/backend-api/codex` with `gpt-5.5` by default.
 
 ## Local development
 
@@ -32,7 +33,9 @@ curl http://localhost:3000/api/cron/ttft
 ```bash
 npx vercel@latest login
 npx vercel@latest link
-npx vercel@latest env add OPENAI_API_KEY production
+npx vercel@latest env add CODEX_OAUTH_ACCESS_TOKEN production
+npx vercel@latest env add CODEX_OAUTH_REFRESH_TOKEN production
+npx vercel@latest env add CODEX_OAUTH_ACCOUNT_ID production
 npx vercel@latest env add CODEX_MODEL production
 npx vercel@latest env add CRON_SECRET production
 npx vercel@latest env add KV_REST_API_URL production
@@ -42,6 +45,8 @@ npx vercel@latest deploy --prod
 ```
 
 Use Vercel KV or Upstash Redis for durable history. Without Redis REST env vars, Vercel can render demo data, but Cron samples are not durable across serverless invocations.
+
+OAuth probes use the official ChatGPT Codex backend by default. Do not set `CODEX_OAUTH_BASE_URL` unless you are intentionally overriding it; API-key probes use `OPENAI_API_BASE_URL` and default to `https://api.openai.com/v1`.
 
 At a 10-minute cadence, Redis writes are about 8,640 commands per month because each run is stored as one list item plus one trim. Dashboard reads are cached for 60 seconds by default through `TTFT_METRICS_CACHE_SECONDS`.
 
