@@ -40,6 +40,14 @@ npx vercel@latest env add TTFT_PROXY_JSON production
 npx vercel@latest deploy --prod
 ```
 
+On Vercel Hobby, the default 10-minute Cron schedule will be rejected. Use this only to validate the deployment flow:
+
+```bash
+npx vercel@latest deploy --prod --local-config vercel.hobby.json
+```
+
+Switch back to the default `vercel.json` on a Pro project to enable the required 10-minute cadence.
+
 Use Vercel KV or Upstash Redis for durable history. Without Redis REST env vars, Vercel can render demo data, but Cron samples are not durable across serverless invocations.
 
 ## Proxy notes

@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { ProbeResult } from "./types";
 
@@ -60,7 +61,8 @@ async function redisPipeline(commands: Array<Array<string | number>>) {
 }
 
 function localDataPath() {
-  return path.join(process.cwd(), ".data", "samples.json");
+  const baseDir = process.env.VERCEL ? path.join(os.tmpdir(), "codex-dashboard") : path.join(process.cwd(), ".data");
+  return path.join(baseDir, "samples.json");
 }
 
 async function readLocalSamples() {
