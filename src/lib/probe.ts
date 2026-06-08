@@ -1,5 +1,5 @@
 import { ProxyAgent, request, type Dispatcher } from "undici";
-import { CODEX_MODEL, PROBE_TIMEOUT_MS, shouldUseMockProbes } from "./config";
+import { API_BASE_URL, CODEX_MODEL, getAuthToken, PROBE_TIMEOUT_MS, shouldUseMockProbes } from "./config";
 import { mockTtft } from "./mock";
 import { getProxyUrl } from "./proxies";
 import type { ProbeResult, Region } from "./types";
@@ -55,12 +55,21 @@ function eventHasOutputText(eventBlock: string) {
     }
 
     try {
-      const event = JSON.parse(dataLine) as { type?: string; delta?: unknown; text?: unknown };
+      const event = JSON.parse(dataLine) as {
+        type?: string;
+        delta?: unknown;
+        text?: unknown;
+        choices?: Array<{ delta?: { content?: unknown }; text?: unknown }>;
+      };
       if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
         return true;
       }
 
       if (event.type === "response.output_text.done" && typeof event.text === "string") {
+        return true;
+      }
+
+      if (event.choices?.some((choice) => typeof choice.delta?.content === "string" || typeof choice.text === "string")) {
         return true;
       }
 
@@ -108,14 +117,19 @@ export async function probeRegion(region: Region) {
   const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
   const dispatcher: Dispatcher | undefined = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
   const startedAt = performance.now();
+  const authToken = getAuthToken();
 
   try {
-    const response = await request("https://api.openai.com/v1/responses", {
+    if (!authToken) {
+      throw new Error("No auth token configured");
+    }
+
+    const response = await request(`${API_BASE_URL}/responses`, {
       method: "POST",
       dispatcher,
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
         Accept: "text/event-stream",
       },

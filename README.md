@@ -5,11 +5,12 @@ Realtime Vercel dashboard scaffold for monitoring Codex TTFT by region.
 ## What is included
 
 - Next.js App Router dashboard UI.
-- Vercel Cron at `/api/cron/ttft` every 10 minutes.
+- Cloudflare Worker Cron trigger for `/api/cron/ttft` every 10 minutes.
 - `/api/metrics` aggregation endpoint for current regional TTFT and hourly medians.
 - Redis REST storage support for Vercel KV or Upstash Redis.
 - Local JSON storage for development.
 - Mock probe mode so the deployment and UI can be tested before proxy and OpenAI credentials are ready.
+- Redis writes are stored by probe run to stay comfortably inside low Upstash command quotas.
 
 ## Local development
 
@@ -40,15 +41,34 @@ npx vercel@latest env add TTFT_PROXY_JSON production
 npx vercel@latest deploy --prod
 ```
 
-On Vercel Hobby, the default 10-minute Cron schedule will be rejected. Use this only to validate the deployment flow:
+Use Vercel KV or Upstash Redis for durable history. Without Redis REST env vars, Vercel can render demo data, but Cron samples are not durable across serverless invocations.
+
+At a 10-minute cadence, Redis writes are about 8,640 commands per month because each run is stored as one list item plus one trim. Dashboard reads are cached for 60 seconds by default through `TTFT_METRICS_CACHE_SECONDS`.
+
+## Cloudflare Cron deployment
+
+Vercel Hobby only supports daily Cron, so the 10-minute schedule is handled by the Cloudflare Worker in `cloudflare/cron-worker.js`.
 
 ```bash
-npx vercel@latest deploy --prod --local-config vercel.hobby.json
+npx wrangler login
+npx wrangler secret put APP_URL
+npx wrangler secret put CRON_SECRET
+npm run cf:deploy
 ```
 
-Switch back to the default `vercel.json` on a Pro project to enable the required 10-minute cadence.
+Set `APP_URL` to the production Vercel URL, for example `https://codex-dashboard.vercel.app`. Set `CRON_SECRET` to the same value used in Vercel.
 
-Use Vercel KV or Upstash Redis for durable history. Without Redis REST env vars, Vercel can render demo data, but Cron samples are not durable across serverless invocations.
+After deployment, trigger once manually:
+
+```bash
+curl https://codex-dashboard-cron.<your-subdomain>.workers.dev
+```
+
+Check live Worker logs:
+
+```bash
+npm run cf:tail
+```
 
 ## Proxy notes
 
@@ -66,4 +86,4 @@ Example:
 
 ## Cron frequency
 
-The scaffold uses `*/10 * * * *` in `vercel.json`. Vercel plan limits apply; high-frequency Cron generally requires a paid plan.
+The Cloudflare Worker uses `*/10 * * * *` in `wrangler.toml`. `vercel.json` intentionally does not define Vercel Cron so Hobby deployments are not rejected.

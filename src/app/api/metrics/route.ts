@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { METRICS_CACHE_SECONDS } from "@/lib/config";
 import { generateDemoSamples } from "@/lib/demo";
 import { buildDashboardMetrics } from "@/lib/metrics";
 import { readProbeResults } from "@/lib/storage";
@@ -12,7 +13,7 @@ export async function GET() {
 
   return NextResponse.json(metrics, {
     headers: {
-      "Cache-Control": "no-store",
+      "Cache-Control": `public, s-maxage=${METRICS_CACHE_SECONDS}, stale-while-revalidate=${METRICS_CACHE_SECONDS * 4}`,
     },
   });
 }

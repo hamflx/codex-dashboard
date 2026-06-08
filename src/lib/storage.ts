@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { ProbeResult } from "./types";
 
-const SAMPLE_KEY = "ttft:samples";
+const RUN_KEY = "ttft:runs";
 const SAMPLE_LIMIT = Number(process.env.TTFT_SAMPLE_LIMIT || 50000);
 
 function redisConfig() {
@@ -91,9 +91,12 @@ export async function saveProbeResults(results: ProbeResult[]) {
   }
 
   if (redisConfig()) {
+    const newestFirst = [...results].sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
+    const runLimit = Math.max(1, Math.ceil(SAMPLE_LIMIT / Math.max(1, results.length)));
+
     await redisPipeline([
-      ...results.map((result) => ["LPUSH", SAMPLE_KEY, JSON.stringify(result)]),
-      ["LTRIM", SAMPLE_KEY, 0, SAMPLE_LIMIT - 1],
+      ["LPUSH", RUN_KEY, JSON.stringify(newestFirst)],
+      ["LTRIM", RUN_KEY, 0, runLimit - 1],
     ]);
     return;
   }
@@ -104,8 +107,28 @@ export async function saveProbeResults(results: ProbeResult[]) {
 
 export async function readProbeResults(limit = SAMPLE_LIMIT) {
   if (redisConfig()) {
-    const values = await redisCommand<string[]>(["LRANGE", SAMPLE_KEY, 0, limit - 1]);
-    return values
+    const values = await redisCommand<string[]>(["LRANGE", RUN_KEY, 0, limit - 1]);
+    const samples: ProbeResult[] = [];
+
+    for (const value of values) {
+      try {
+        const parsed = JSON.parse(value) as ProbeResult[] | ProbeResult;
+        if (Array.isArray(parsed)) {
+          samples.push(...parsed);
+        } else {
+          samples.push(parsed);
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (samples.length) {
+      return samples.slice(0, limit);
+    }
+
+    const legacyValues = await redisCommand<string[]>(["LRANGE", "ttft:samples", 0, limit - 1]);
+    return legacyValues
       .map((value) => {
         try {
           return JSON.parse(value) as ProbeResult;

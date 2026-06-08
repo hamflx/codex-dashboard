@@ -77,7 +77,7 @@ export default function Dashboard({ initialMetrics }: DashboardProps) {
   useEffect(() => {
     const interval = window.setInterval(() => {
       void refresh();
-    }, 30000);
+    }, 60000);
 
     return () => window.clearInterval(interval);
   }, []);
