@@ -7,7 +7,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "cf:deploy": "wrangler deploy",
+    "cf:tail": "wrangler tail codex-dashboard-cron"
   },
   "dependencies": {
     "lucide-react": "latest",
@@ -24,7 +26,8 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "wrangler": "4.98.0"
   },
   "packageManager": "npm@11.4.2"
 }

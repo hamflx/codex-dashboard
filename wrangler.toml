@@ -1,0 +1,8 @@
+name = "codex-dashboard-cron"
+main = "cloudflare/cron-worker.js"
+compatibility_date = "2026-06-08"
+workers_dev = true
+preview_urls = false
+
+[triggers]
+crons = ["*/10 * * * *"]
