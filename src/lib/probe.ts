@@ -101,6 +101,42 @@ function eventHasOutputText(eventBlock: string) {
   return false;
 }
 
+function stripMarkup(text: string) {
+  return text
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compactErrorMessage(message: string) {
+  const compacted = message.includes("<html") ? stripMarkup(message) : message.replace(/\s+/g, " ").trim();
+  return compacted.length > 300 ? `${compacted.slice(0, 300)}...` : compacted;
+}
+
+async function createHttpError(response: Awaited<ReturnType<typeof request>>) {
+  const contentType = String(response.headers["content-type"] || "");
+  const body = await response.body.text();
+  let detail = body;
+
+  if (contentType.includes("application/json")) {
+    try {
+      const parsed = JSON.parse(body) as { error?: { message?: unknown }; detail?: unknown; message?: unknown };
+      const parsedMessage = parsed.error?.message ?? parsed.detail ?? parsed.message;
+      detail = typeof parsedMessage === "string" ? parsedMessage : body;
+    } catch {
+      detail = body;
+    }
+  }
+
+  if (contentType.includes("text/html") || detail.includes("<html")) {
+    detail = stripMarkup(detail);
+  }
+
+  return new Error(compactErrorMessage(`OpenAI returned ${response.statusCode}: ${detail}`));
+}
+
 function createConversationId() {
   return randomUUID();
 }
@@ -244,6 +280,8 @@ async function createResponsesRequest(
       "OpenAI-Beta": "responses=experimental",
       "Content-Type": "application/json",
       Accept: "text/event-stream",
+      originator: "codex_cli_rs",
+      "User-Agent": "codex_cli_rs/0.0.0 (Windows NT 10.0; x86_64) codex-dashboard",
       ...(auth.mode === "oauth"
         ? {
             conversation_id: conversationId,
@@ -314,13 +352,13 @@ export async function probeRegion(region: Region) {
     }
 
     if (response.statusCode >= 400) {
-      throw new Error(`OpenAI returned ${response.statusCode}: ${await response.body.text()}`);
+      throw await createHttpError(response);
     }
 
     const ttftMs = await readFirstTextDelta(response.body as AsyncIterable<Buffer>, startedAt);
     return createResult(region, measuredAt, ttftMs, "ok", Boolean(proxyUrl));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown probe error";
+    const message = error instanceof Error ? compactErrorMessage(error.message) : "Unknown probe error";
     return createResult(region, measuredAt, null, "error", Boolean(proxyUrl), message);
   } finally {
     clearTimeout(timeout);
