@@ -1,0 +1,34 @@
+# dependencies
+node_modules
+
+# build outputs
+.next
+out
+dist
+tsconfig.tsbuildinfo
+
+# local env and Vercel state
+.env
+.env.*
+!.env.example
+.vercel
+
+# local-only probe data and exported proxy config
+.data
+clash.config.yaml
+
+# local verification artifacts
+.playwright-cli
+output
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea
+.vscode
